@@ -1,5 +1,6 @@
 package org.openmrs.module.locationbasedaccess.aop.common;
 
+import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.Map;
 import org.aopalliance.aop.Advice;
@@ -14,11 +15,16 @@ import org.openmrs.test.BaseModuleContextSensitiveTest;
 public abstract class AOPContextSensitiveTest extends BaseModuleContextSensitiveTest implements TestWithAOP {
 
     private Class<?> interceptorClass;
+    private MethodInterceptor interceptor;
 
     private Map<Class<?>, Advice> servicesMap = new HashMap<Class<?>, Advice>();
 
     public void setInterceptor(Class<? extends MethodInterceptor> interceptorClass) {
         this.interceptorClass = interceptorClass;
+    }
+
+    public void setInterceptor(MethodInterceptor interceptor) {
+        this.interceptor = interceptor;
     }
 
     public void addService(Class<? extends OpenmrsService> serviceClass) {
@@ -33,8 +39,17 @@ public abstract class AOPContextSensitiveTest extends BaseModuleContextSensitive
         setInterceptorAndServices(this);
 
         for (Class<?> serviceClass : servicesMap.keySet()) {
-            Advice advice = (Advice) (new AdvicePoint(serviceClass.getCanonicalName(), Context.loadClass(interceptorClass
-                    .getCanonicalName()))).getClassInstance();
+            Advice advice;
+            if (interceptor != null) {
+                advice = interceptor;
+            }
+            else if (interceptorClass != null){
+                advice = (Advice) (new AdvicePoint(serviceClass.getCanonicalName(), Context.loadClass(interceptorClass
+                        .getCanonicalName()))).getClassInstance();
+            }
+            else {
+                throw new IllegalStateException("You must either set interceptor on interceptor class to setup the Context");
+            }
             servicesMap.put(serviceClass, advice);
             Context.addAdvice(Context.loadClass(serviceClass.getCanonicalName()), advice);
         }
